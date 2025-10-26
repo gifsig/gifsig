@@ -1,0 +1,142 @@
+{
+  "iconAssets": {
+    "description": "Icon asset ideas for GifSig signature creator",
+    "colorPalette": {
+      "eggshellWhite": "#F8F4E6",
+      "pureWhite": "#FFFFFF",
+      "greyFrame": "#8B8B8B",
+      "darkGrey": "#4A4A4A",
+      "accentBlue": "#4A90E2",
+      "accentGreen": "#5CB85C",
+      "accentRed": "#D9534F"
+    },
+    "primaryIcons": [
+      {
+        "name": "camera",
+        "purpose": "Start recording button",
+        "style": "outlined",
+        "strokeWidth": 2,
+        "suggestedLibrary": "Lucide Icons",
+        "alternatives": ["Feather Icons", "Heroicons"]
+      },
+      {
+        "name": "square-stop",
+        "purpose": "Stop recording button",
+        "style": "outlined/filled",
+        "strokeWidth": 2,
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "download",
+        "purpose": "Download GIF button",
+        "style": "outlined with arrow",
+        "strokeWidth": 2,
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "refresh-ccw",
+        "purpose": "Reset/try again button",
+        "style": "outlined circular arrow",
+        "strokeWidth": 2,
+        "suggestedLibrary": "Lucide Icons"
+      }
+    ],
+    "secondaryIcons": [
+      {
+        "name": "pen-tool",
+        "purpose": "Signature indicator/branding",
+        "usage": "Optional decorative element",
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "video",
+        "purpose": "Video recording indicator",
+        "usage": "Status display during recording",
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "check-circle",
+        "purpose": "Success indicator",
+        "usage": "Show when GIF is ready",
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "alert-circle",
+        "purpose": "Error indicator",
+        "usage": "Display if camera access fails",
+        "suggestedLibrary": "Lucide Icons"
+      },
+      {
+        "name": "loader",
+        "purpose": "Processing indicator",
+        "usage": "Animated spinner during GIF conversion",
+        "suggestedLibrary": "Lucide Icons"
+      }
+    ],
+    "decorativeElements": [
+      {
+        "name": "italic-x-mark",
+        "description": "Custom italic 'X' for signature line start",
+        "implementation": "CSS font-style: italic",
+        "fontSize": "2.5rem",
+        "fontWeight": "300"
+      },
+      {
+        "name": "dotted-line",
+        "description": "Signature line with dotted pattern",
+        "implementation": "CSS linear-gradient with dashes",
+        "pattern": "20px segments, 40% filled, 60% transparent"
+      }
+    ],
+    "favicon": {
+      "concept": "Simple pen nib or stylized signature mark",
+      "formats": ["ico", "png", "svg"],
+      "sizes": [16, 32, 48, 64, 128, 256],
+      "suggestions": [
+        "Minimalist pen icon in dark grey",
+        "Abstract signature swirl",
+        "Camera + pen combination icon",
+        "Letter 'G' with signature flourish"
+      ]
+    },
+    "recommendations": {
+      "iconSystem": "Use consistent stroke-based icon set (Lucide or Feather)",
+      "sizing": "24x24px base size for all icons in buttons",
+      "spacing": "12px gap between icon and text in buttons",
+      "animations": [
+        "Pulse animation for recording state",
+        "Subtle scale on hover (1.05x)",
+        "Rotate animation for loading spinner",
+        "Smooth fade transitions between states"
+      ],
+      "accessibility": [
+        "ARIA labels on all icon buttons",
+        "Text labels alongside icons",
+        "High contrast between icons and backgrounds",
+        "Minimum touch target size: 44x44px"
+      ]
+    },
+    "futureEnhancements": [
+      {
+        "name": "share",
+        "purpose": "Share signature GIF to social media",
+        "icon": "share-2"
+      },
+      {
+        "name": "settings",
+        "purpose": "Adjust GIF quality/size settings",
+        "icon": "settings"
+      },
+      {
+        "name": "gallery",
+        "purpose": "View previously created signatures",
+        "icon": "folder"
+      },
+      {
+        "name": "copy",
+        "purpose": "Copy GIF to clipboard",
+        "icon": "clipboard"
+      }
+    ]
+  }
+}
