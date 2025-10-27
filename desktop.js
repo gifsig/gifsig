@@ -85,6 +85,8 @@ signatureBox.addEventListener('click', () => {
         initCanvas();
         drawingCanvas.classList.add('active');
         drawPrompt.classList.add('hidden');
+        clearBtn.classList.add('visible');
+        createBtn.classList.add('visible');
         drawingActive = true; // Enable touch-to-draw mode
         drawingEnabled = true; // Start with drawing enabled
         
@@ -348,13 +350,19 @@ function stopRecording() {
 
 // Clear canvas
 clearBtn.addEventListener('click', (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     
-    // Stop and reinitialize recording
+    // Reset everything like the reset button, but keep thumbnails
     stopRecording();
-    initRecording();
-    
+    ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    drawingCanvas.classList.remove('active');
+    drawPrompt.classList.remove('hidden');
+    clearBtn.classList.remove('visible');
+    createBtn.classList.remove('visible');
+    createBtn.disabled = false;
+    clearBtn.disabled = false;
+    drawingActive = false; // Disable drawing mode
     isDrawing = false; // Reset drawing state
     drawingEnabled = true; // Reset to enabled
     lastMoveTime = 0; // Reset timing
@@ -363,8 +371,11 @@ clearBtn.addEventListener('click', (e) => {
         clearTimeout(strokeTimeoutId);
         strokeTimeoutId = null;
     }
-    status.textContent = 'Canvas cleared';
+    status.textContent = '';
     status.className = 'status';
+    
+    // DON'T clear thumbnails (unlike reset button)
+    // DON'T revoke GIF URLs (unlike reset button)
 });
 
 // Create GIF
@@ -518,6 +529,8 @@ async function createGIF() {
             // Hide drawing controls and show prompt again
             drawingCanvas.classList.remove('active');
             drawPrompt.classList.remove('hidden');
+            clearBtn.classList.remove('visible');
+            createBtn.classList.remove('visible');
             drawingActive = false;
             
             createBtn.disabled = false;
@@ -706,6 +719,8 @@ resetBtn.addEventListener('click', () => {
     ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     drawingCanvas.classList.remove('active');
     drawPrompt.classList.remove('hidden');
+    clearBtn.classList.remove('visible');
+    createBtn.classList.remove('visible');
     createBtn.disabled = false;
     clearBtn.disabled = false;
     drawingActive = false; // Disable drawing mode
