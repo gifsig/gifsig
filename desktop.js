@@ -26,13 +26,16 @@ let currentGifUrl = null;
 const signatureBox = document.getElementById('signatureBox');
 const drawingCanvas = document.getElementById('drawingCanvas');
 const drawPrompt = document.getElementById('drawPrompt');
-const strokeSelector = document.getElementById('strokeSelector');
 const strokeBtns = document.querySelectorAll('.stroke-btn');
 const clearBtn = document.getElementById('clearBtn');
 const createBtn = document.getElementById('createBtn');
 const resetBtn = document.getElementById('resetBtn');
 const status = document.getElementById('status');
 const gifOverlay = document.getElementById('gifOverlay');
+const loadingAnimation = document.getElementById('loadingAnimation');
+const loadingGif = document.getElementById('loadingGif');
+const overlayContent = document.querySelector('.overlay-content');
+const overlayResult = document.getElementById('overlayResult');
 const gifPreview = document.getElementById('gifPreview');
 const gifImage = document.getElementById('gifImage');
 const closeOverlay = document.getElementById('closeOverlay');
@@ -61,9 +64,6 @@ signatureBox.addEventListener('click', () => {
         initCanvas();
         drawingCanvas.classList.add('active');
         drawPrompt.classList.add('hidden');
-        strokeSelector.classList.add('visible');
-        clearBtn.classList.add('visible');
-        createBtn.classList.add('visible');
         drawingActive = true; // Enable touch-to-draw mode
         drawingEnabled = true; // Start with drawing enabled
         
@@ -305,14 +305,22 @@ createBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     
     if (drawingFrames.length < 2) {
-        status.textContent = 'Draw your signature first!';
-        status.className = 'status error';
         return;
     }
     
     stopRecording();
-    status.textContent = 'Creating your GIF...';
-    status.className = 'status processing';
+    
+    // Show overlay with loading animation
+    overlayResult.classList.remove('active');
+    overlayContent.classList.remove('active');
+    loadingAnimation.classList.add('active');
+    gifOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    
+    // Force reload the loading GIF to restart animation
+    const loadingSrc = loadingGif.src;
+    loadingGif.src = '';
+    loadingGif.src = loadingSrc;
     
     createBtn.disabled = true;
     clearBtn.disabled = true;
@@ -376,9 +384,9 @@ async function createGIF() {
             status.textContent = `Processing... ${Math.floor((i / framesToUse.length) * 100)}%`;
         }
 
-        status.textContent = 'Rendering GIF...';
+        // Rendering in progress
 
-        gif.on('finished', (blob) => {
+        gif.on('finished', async (blob) => {
             console.log('GIF finished! Blob size:', blob.size);
             currentGifBlob = blob;
             currentGifUrl = URL.createObjectURL(blob);
@@ -396,15 +404,28 @@ async function createGIF() {
             newGifImage.id = 'gifImage';
             newGifImage.alt = 'Your signature GIF';
             
-            // Wait for image to load before showing overlay
-            newGifImage.onload = () => {
-                console.log('New GIF loaded into memory, showing overlay');
-                // Show overlay with smooth animation
-                requestAnimationFrame(() => {
-                    gifOverlay.classList.add('active');
-                    document.body.style.overflow = 'hidden';
-                });
-            };
+            // Create promises for both conditions
+            const signatureReady = new Promise((resolve) => {
+                newGifImage.onload = () => {
+                    console.log('Signature GIF loaded');
+                    resolve();
+                };
+            });
+            
+            const loadingAnimationComplete = new Promise((resolve) => {
+                // Wait for loading GIF to complete at least one loop
+                // Assuming loading GIF is about 1-2 seconds, we'll track it
+                let hasLooped = false;
+                const checkLoop = () => {
+                    if (!hasLooped) {
+                        hasLooped = true;
+                        // Wait minimum 1 second for at least one animation loop
+                        setTimeout(resolve, 1000);
+                    }
+                };
+                // Start checking immediately
+                checkLoop();
+            });
             
             // Append to DOM
             parent.appendChild(newGifImage);
@@ -415,14 +436,22 @@ async function createGIF() {
                 console.log('Fresh GIF URL set, waiting for load...');
             });
             
-            // Hide drawing controls
-            drawingCanvas.classList.remove('active');
-            strokeSelector.classList.remove('visible');
-            clearBtn.classList.remove('visible');
-            createBtn.classList.remove('visible');
+            // Wait for BOTH conditions to be met
+            await Promise.all([signatureReady, loadingAnimationComplete]);
             
-            status.textContent = '';
-            status.className = 'status';
+            console.log('Both signature and loading animation ready, showing result');
+            
+            // Now hide loading and show result
+            requestAnimationFrame(() => {
+                loadingAnimation.classList.remove('active');
+                overlayContent.classList.add('active');
+                overlayResult.classList.add('active');
+            });
+            
+            // Hide drawing controls and show prompt again
+            drawingCanvas.classList.remove('active');
+            drawPrompt.classList.remove('hidden');
+            drawingActive = false;
             
             createBtn.disabled = false;
             clearBtn.disabled = false;
@@ -435,8 +464,11 @@ async function createGIF() {
         
         gif.on('error', (error) => {
             console.error('GIF encoding error:', error);
-            status.textContent = 'Error encoding GIF. Please try again.';
-            status.className = 'status error';
+            setTimeout(() => {
+                gifOverlay.classList.remove('active');
+                loadingAnimation.classList.remove('active');
+                document.body.style.overflow = '';
+            }, 2000);
             createBtn.disabled = false;
             clearBtn.disabled = false;
         });
@@ -447,8 +479,11 @@ async function createGIF() {
 
     } catch (error) {
         console.error('Error creating GIF:', error);
-        status.textContent = 'Error creating GIF. Please try again.';
-        status.className = 'status error';
+        setTimeout(() => {
+            gifOverlay.classList.remove('active');
+            loadingAnimation.classList.remove('active');
+            document.body.style.overflow = '';
+        }, 2000);
         createBtn.disabled = false;
         clearBtn.disabled = false;
     }
@@ -457,6 +492,8 @@ async function createGIF() {
 // Overlay Controls
 closeOverlay.addEventListener('click', () => {
     gifOverlay.classList.remove('active');
+    overlayContent.classList.remove('active');
+    overlayResult.classList.remove('active');
     document.body.style.overflow = '';
     // Reset GIF play state by clearing src
     setTimeout(() => {
@@ -471,6 +508,8 @@ closeOverlay.addEventListener('click', () => {
 gifOverlay.addEventListener('click', (e) => {
     if (e.target === gifOverlay) {
         gifOverlay.classList.remove('active');
+        overlayContent.classList.remove('active');
+        overlayResult.classList.remove('active');
         document.body.style.overflow = '';
         // Reset GIF play state by clearing src
         setTimeout(() => {
@@ -486,6 +525,8 @@ gifOverlay.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && gifOverlay.classList.contains('active')) {
         gifOverlay.classList.remove('active');
+        overlayContent.classList.remove('active');
+        overlayResult.classList.remove('active');
         document.body.style.overflow = '';
         // Reset GIF play state by clearing src
         setTimeout(() => {
@@ -590,9 +631,6 @@ saveThumbnail.addEventListener('click', () => {
                 if (currentGifImage) currentGifImage.src = '';
             }
         }, 300); // Wait for overlay close animation
-        
-        // Show reset button
-        resetBtn.classList.add('visible');
     }
 });
 // Reset
@@ -601,10 +639,6 @@ resetBtn.addEventListener('click', () => {
     ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     drawingCanvas.classList.remove('active');
     drawPrompt.classList.remove('hidden');
-    strokeSelector.classList.remove('visible');
-    clearBtn.classList.remove('visible');
-    createBtn.classList.remove('visible');
-    resetBtn.classList.remove('visible');
     createBtn.disabled = false;
     clearBtn.disabled = false;
     drawingActive = false; // Disable drawing mode
