@@ -86,6 +86,11 @@ const MAX_WIDTH_MULTIPLIER = 3.0; // Maximum width (slow drawing)
 const VELOCITY_FILTER_WEIGHT = 0.6; // Smoothing factor (balanced)
 const CANVAS_SCALE = 2; // Higher resolution for better quality
 
+// Apple-level smoothing: Bézier curve smoothing
+let pointBuffer = []; // Buffer of recent points for smoothing
+const SMOOTHING_BUFFER_SIZE = 3; // Number of points to use for smoothing
+const MIN_DISTANCE = 2; // Minimum distance between points (reduces jitter)
+
 // DOM Elements
 const frame = document.querySelector('.frame');
 const title = document.querySelector('.title');
@@ -231,10 +236,11 @@ function startDrawing(e) {
     isDrawing = true;
     const coords = getCoordinates(e);
     
-    // Reset velocity tracking for new stroke
+    // Reset velocity tracking and point buffer for new stroke
     lastPoint = coords;
     lastTimestamp = Date.now();
     currentLineWidth = currentStrokeThickness;
+    pointBuffer = [coords];
 }
 
 function draw(e) {
@@ -245,6 +251,7 @@ function draw(e) {
         if (isDrawing) {
             isDrawing = false;
             lastDrawPosition = null;
+            pointBuffer = [];
         }
         return;
     }
@@ -256,6 +263,7 @@ function draw(e) {
         if (isDrawing) {
             isDrawing = false;
             lastDrawPosition = null;
+            pointBuffer = [];
         }
         return;
     }
@@ -292,25 +300,39 @@ function draw(e) {
         lastPoint = coords;
         lastTimestamp = now;
         currentLineWidth = currentStrokeThickness;
+        pointBuffer = [coords]; // Reset buffer for new stroke
     } else {
-        // Calculate velocity
-        if (lastPoint && lastTimestamp) {
+        // Calculate distance from last point
+        if (lastPoint) {
             const distance = Math.sqrt(
                 Math.pow(coords.x - lastPoint.x, 2) + 
                 Math.pow(coords.y - lastPoint.y, 2)
             );
+            
+            // Only add point if it's far enough (reduces jitter)
+            if (distance < MIN_DISTANCE) {
+                return;
+            }
+            
+            // Calculate velocity
             const timeDelta = now - lastTimestamp;
             const velocity = timeDelta > 0 ? distance / timeDelta : 0;
             
             // Update line width based on velocity
             const newWidth = getLineWidth(velocity);
             
-            // Draw this segment separately so it keeps its width
-            ctx.beginPath();
-            ctx.moveTo(lastPoint.x, lastPoint.y);
-            ctx.lineWidth = newWidth;
-            ctx.lineTo(coords.x, coords.y);
-            ctx.stroke();
+            // Add point to buffer
+            pointBuffer.push(coords);
+            
+            // Keep buffer size limited
+            if (pointBuffer.length > SMOOTHING_BUFFER_SIZE) {
+                pointBuffer.shift();
+            }
+            
+            // Draw smooth Bézier curve when we have enough points
+            if (pointBuffer.length >= 2) {
+                drawSmoothCurve(pointBuffer, newWidth);
+            }
         }
         
         // Update tracking
@@ -330,14 +352,55 @@ function draw(e) {
         if (isDrawing) {
             isDrawing = false;
             lastDrawPosition = null;
+            pointBuffer = [];
         }
     }, LIFT_DETECTION_MS);
+}
+
+// Draw smooth Bézier curve through points (Apple-style smoothing)
+function drawSmoothCurve(points, lineWidth) {
+    if (points.length < 2) return;
+    
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    
+    // For 2 points, use quadratic curve
+    if (points.length === 2) {
+        const p0 = points[0];
+        const p1 = points[1];
+        
+        ctx.moveTo(p0.x, p0.y);
+        
+        // Use midpoint as control point for smoother curve
+        const midX = (p0.x + p1.x) / 2;
+        const midY = (p0.y + p1.y) / 2;
+        ctx.quadraticCurveTo(p0.x, p0.y, midX, midY);
+    } else {
+        // For 3+ points, draw smooth curve through midpoints
+        const p0 = points[points.length - 3];
+        const p1 = points[points.length - 2];
+        const p2 = points[points.length - 1];
+        
+        // Calculate control point for smooth curve
+        const cp1x = p1.x;
+        const cp1y = p1.y;
+        
+        // Draw to midpoint between p1 and p2
+        const endX = (p1.x + p2.x) / 2;
+        const endY = (p1.y + p2.y) / 2;
+        
+        ctx.moveTo(p0.x, p0.y);
+        ctx.quadraticCurveTo(cp1x, cp1y, endX, endY);
+    }
+    
+    ctx.stroke();
 }
 
 function stopDrawing(e) {
     if (!isDrawing) return;
     e.preventDefault();
     isDrawing = false;
+    pointBuffer = []; // Clear buffer when stroke ends
 }
 
 // Mouse events - click toggles drawing enabled/disabled
@@ -352,8 +415,8 @@ drawingCanvas.addEventListener('mousedown', (e) => {
     // If we just disabled drawing, end any current stroke
     if (!drawingEnabled && isDrawing) {
         isDrawing = false;
-        ctx.closePath();
         lastDrawPosition = null;
+        pointBuffer = [];
     }
 });
 drawingCanvas.addEventListener('mousemove', draw);
@@ -363,10 +426,10 @@ drawingCanvas.addEventListener('mouseup', (e) => {
 });
 drawingCanvas.addEventListener('mouseout', stopDrawing);
 
-// Touch events
-drawingCanvas.addEventListener('touchstart', startDrawing);
-drawingCanvas.addEventListener('touchmove', draw);
-drawingCanvas.addEventListener('touchend', stopDrawing);
+// Touch events with passive: false to prevent default and avoid console warnings
+drawingCanvas.addEventListener('touchstart', startDrawing, { passive: false });
+drawingCanvas.addEventListener('touchmove', draw, { passive: false });
+drawingCanvas.addEventListener('touchend', stopDrawing, { passive: false });
 
 // Initialize recording (but don't start capturing yet)
 function initRecording() {

@@ -8,7 +8,10 @@
         // Detect mobile vs desktop and load appropriate CSS
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         const cssFile = isMobile ? 'mobile.css' : 'styles.css';
-        document.write('<link rel="stylesheet" href="' + cssFile + '">');
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = cssFile;
+        document.head.appendChild(link);
     </script>
 </head>
 <body class="mobile-loading">
@@ -169,8 +172,10 @@
             document.body.classList.remove('mobile-loading');
         }
         
-        // Load the appropriate script
-        document.write('<script src="' + jsFile + '"><\/script>');
+        // Load the appropriate script dynamically
+        const script = document.createElement('script');
+        script.src = jsFile;
+        document.body.appendChild(script);
     </script>
 </body>
 </html>
