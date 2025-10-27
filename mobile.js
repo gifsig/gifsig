@@ -76,6 +76,14 @@ let canvasHeight = 0;
 let currentGifBlob = null;
 let currentGifUrl = null;
 
+// Velocity-based stroke variables
+let lastPoint = null;
+let lastTimestamp = 0;
+let currentLineWidth = currentStrokeThickness;
+const MIN_WIDTH_MULTIPLIER = 0.4; // Minimum width (fast drawing)
+const MAX_WIDTH_MULTIPLIER = 2.0; // Maximum width (slow drawing)
+const VELOCITY_FILTER_WEIGHT = 0.7; // Smoothing factor
+
 // DOM Elements
 const signatureBox = document.getElementById('signatureBox');
 const drawingCanvas = document.getElementById('drawingCanvas');
@@ -109,6 +117,10 @@ function initCanvas() {
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = currentStrokeThickness;
+    
+    // Enable image smoothing for better line quality
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 }
 
 // Activate drawing mode when signature box is clicked
@@ -154,6 +166,35 @@ function getCoordinates(e) {
     };
 }
 
+// Calculate velocity-based line width
+function getLineWidth(velocity) {
+    // Map velocity to width multiplier
+    // velocity ranges: slow=0-1, medium=1-5, fast=5+
+    // Invert: slow=thick, fast=thin
+    let multiplier;
+    
+    if (velocity < 0.5) {
+        // Very slow - maximum thickness
+        multiplier = MAX_WIDTH_MULTIPLIER;
+    } else if (velocity > 10) {
+        // Very fast - minimum thickness
+        multiplier = MIN_WIDTH_MULTIPLIER;
+    } else {
+        // Interpolate between min and max based on velocity
+        // Use logarithmic scale for more natural feel
+        const t = Math.min(1, velocity / 10);
+        multiplier = MAX_WIDTH_MULTIPLIER - (t * (MAX_WIDTH_MULTIPLIER - MIN_WIDTH_MULTIPLIER));
+    }
+    
+    const targetWidth = currentStrokeThickness * multiplier;
+    
+    // Smooth the transition using weighted average
+    currentLineWidth = (currentLineWidth * VELOCITY_FILTER_WEIGHT) + 
+                      (targetWidth * (1 - VELOCITY_FILTER_WEIGHT));
+    
+    return currentLineWidth;
+}
+
 function startDrawing(e) {
     if (!drawingActive) return;
     e.preventDefault();
@@ -166,6 +207,12 @@ function startDrawing(e) {
     
     isDrawing = true;
     const coords = getCoordinates(e);
+    
+    // Reset velocity tracking for new stroke
+    lastPoint = coords;
+    lastTimestamp = Date.now();
+    currentLineWidth = currentStrokeThickness;
+    
     ctx.beginPath();
     ctx.moveTo(coords.x, coords.y);
 }
@@ -229,12 +276,33 @@ function draw(e) {
         
         // Start a completely new stroke at the current position
         isDrawing = true;
+        lastPoint = coords;
+        lastTimestamp = now;
+        currentLineWidth = currentStrokeThickness;
         ctx.beginPath();
         ctx.moveTo(coords.x, coords.y);
     } else {
+        // Calculate velocity
+        if (lastPoint && lastTimestamp) {
+            const distance = Math.sqrt(
+                Math.pow(coords.x - lastPoint.x, 2) + 
+                Math.pow(coords.y - lastPoint.y, 2)
+            );
+            const timeDelta = now - lastTimestamp;
+            const velocity = timeDelta > 0 ? distance / timeDelta : 0;
+            
+            // Update line width based on velocity
+            const newWidth = getLineWidth(velocity);
+            ctx.lineWidth = newWidth;
+        }
+        
         // Continue the current stroke
         ctx.lineTo(coords.x, coords.y);
         ctx.stroke();
+        
+        // Update tracking
+        lastPoint = coords;
+        lastTimestamp = now;
     }
     
     lastMoveTime = now;
