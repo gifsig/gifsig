@@ -169,6 +169,7 @@ body.has-content .container {
     stroke: var(--accent-blue);
     opacity: 1 !important;
     filter: opacity(1);
+    margin-bottom: -40px;
 }
 
 .controls {
