@@ -27,8 +27,9 @@ let lastPoint = null;
 let lastTimestamp = 0;
 let currentLineWidth = currentStrokeThickness;
 const MIN_WIDTH_MULTIPLIER = 0.4; // Minimum width (fast drawing)
-const MAX_WIDTH_MULTIPLIER = 2.0; // Maximum width (slow drawing)
-const VELOCITY_FILTER_WEIGHT = 0.7; // Smoothing factor
+const MAX_WIDTH_MULTIPLIER = 3.0; // Maximum width (slow drawing)
+const VELOCITY_FILTER_WEIGHT = 0.6; // Smoothing factor (balanced)
+const CANVAS_SCALE = 2; // Higher resolution for better quality
 
 // DOM Elements
 const signatureBox = document.getElementById('signatureBox');
@@ -56,9 +57,17 @@ const ctx = drawingCanvas.getContext('2d', { willReadFrequently: true });
 // Initialize canvas
 function initCanvas() {
     const rect = signatureBox.getBoundingClientRect();
-    // Canvas matches the signature box dimensions
-    drawingCanvas.width = rect.width;
-    drawingCanvas.height = rect.height;
+    
+    // Set canvas resolution at higher scale for better quality
+    drawingCanvas.width = rect.width * CANVAS_SCALE;
+    drawingCanvas.height = rect.height * CANVAS_SCALE;
+    
+    // Scale CSS display to match visual size
+    drawingCanvas.style.width = rect.width + 'px';
+    drawingCanvas.style.height = rect.height + 'px';
+    
+    // Scale the context to match
+    ctx.scale(CANVAS_SCALE, CANVAS_SCALE);
     
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -98,39 +107,42 @@ strokeBtns.forEach(btn => {
 // Drawing functions
 function getCoordinates(e) {
     const rect = drawingCanvas.getBoundingClientRect();
-    const scaleX = drawingCanvas.width / rect.width;
-    const scaleY = drawingCanvas.height / rect.height;
     
+    // No scaling needed since we're using ctx.scale()
     if (e.touches && e.touches.length > 0) {
         return {
-            x: (e.touches[0].clientX - rect.left) * scaleX,
-            y: (e.touches[0].clientY - rect.top) * scaleY
+            x: e.touches[0].clientX - rect.left,
+            y: e.touches[0].clientY - rect.top
         };
     }
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
     };
 }
 
 // Calculate velocity-based line width
 function getLineWidth(velocity) {
-    // Map velocity to width multiplier
-    // velocity ranges: slow=0-1, medium=1-5, fast=5+
-    // Invert: slow=thick, fast=thin
+    // velocity is in pixels/millisecond
+    // Convert to more intuitive scale: pixels per 16ms (one frame at 60fps)
+    const normalizedVelocity = velocity * 16;
+    
+    // Map velocity to width multiplier with smoother curve
+    // Slow: 0-5 px/frame, Medium: 5-30 px/frame, Fast: 30+ px/frame
     let multiplier;
     
-    if (velocity < 0.5) {
+    if (normalizedVelocity < 5) {
         // Very slow - maximum thickness
         multiplier = MAX_WIDTH_MULTIPLIER;
-    } else if (velocity > 10) {
+    } else if (normalizedVelocity > 30) {
         // Very fast - minimum thickness
         multiplier = MIN_WIDTH_MULTIPLIER;
     } else {
-        // Interpolate between min and max based on velocity
-        // Use logarithmic scale for more natural feel
-        const t = Math.min(1, velocity / 10);
-        multiplier = MAX_WIDTH_MULTIPLIER - (t * (MAX_WIDTH_MULTIPLIER - MIN_WIDTH_MULTIPLIER));
+        // Smooth interpolation with easing
+        const t = (normalizedVelocity - 5) / 25; // Map 5-30 to 0-1
+        // Apply ease-in-out for smoother transitions
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        multiplier = MAX_WIDTH_MULTIPLIER - (eased * (MAX_WIDTH_MULTIPLIER - MIN_WIDTH_MULTIPLIER));
     }
     
     const targetWidth = currentStrokeThickness * multiplier;
@@ -159,9 +171,6 @@ function startDrawing(e) {
     lastPoint = coords;
     lastTimestamp = Date.now();
     currentLineWidth = currentStrokeThickness;
-    
-    ctx.beginPath();
-    ctx.moveTo(coords.x, coords.y);
 }
 
 function draw(e) {
@@ -171,7 +180,6 @@ function draw(e) {
     if (!drawingEnabled) {
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
         return;
@@ -183,7 +191,6 @@ function draw(e) {
         // Mouse button is pressed, stop drawing
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
         return;
@@ -210,11 +217,6 @@ function draw(e) {
     
     // If finger was lifted or position jumped, start a NEW stroke
     if (!isDrawing || fingerWasLifted || positionJumped) {
-        if (isDrawing) {
-            // End the previous stroke cleanly
-            ctx.closePath();
-        }
-        
         // Start recording on first touch (for hover-based drawing)
         if (!hasStartedDrawing) {
             hasStartedDrawing = true;
@@ -226,8 +228,6 @@ function draw(e) {
         lastPoint = coords;
         lastTimestamp = now;
         currentLineWidth = currentStrokeThickness;
-        ctx.beginPath();
-        ctx.moveTo(coords.x, coords.y);
     } else {
         // Calculate velocity
         if (lastPoint && lastTimestamp) {
@@ -240,12 +240,14 @@ function draw(e) {
             
             // Update line width based on velocity
             const newWidth = getLineWidth(velocity);
+            
+            // Draw this segment separately so it keeps its width
+            ctx.beginPath();
+            ctx.moveTo(lastPoint.x, lastPoint.y);
             ctx.lineWidth = newWidth;
+            ctx.lineTo(coords.x, coords.y);
+            ctx.stroke();
         }
-        
-        // Continue the current stroke
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
         
         // Update tracking
         lastPoint = coords;
@@ -263,7 +265,6 @@ function draw(e) {
     strokeTimeoutId = setTimeout(() => {
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
     }, LIFT_DETECTION_MS);
@@ -273,7 +274,6 @@ function stopDrawing(e) {
     if (!isDrawing) return;
     e.preventDefault();
     isDrawing = false;
-    ctx.closePath();
 }
 
 // Mouse events - click toggles drawing enabled/disabled
@@ -288,7 +288,6 @@ drawingCanvas.addEventListener('mousedown', (e) => {
     // If we just disabled drawing, end any current stroke
     if (!drawingEnabled && isDrawing) {
         isDrawing = false;
-        ctx.closePath();
         lastDrawPosition = null;
     }
 });

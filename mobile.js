@@ -73,6 +73,7 @@ let startTime = null;
 let hasStartedDrawing = false; // Track if user has made first touch
 let canvasWidth = 0;
 let canvasHeight = 0;
+let drawableHeight = 0; // Maximum Y coordinate for drawing (above buttons)
 let currentGifBlob = null;
 let currentGifUrl = null;
 
@@ -81,14 +82,18 @@ let lastPoint = null;
 let lastTimestamp = 0;
 let currentLineWidth = currentStrokeThickness;
 const MIN_WIDTH_MULTIPLIER = 0.4; // Minimum width (fast drawing)
-const MAX_WIDTH_MULTIPLIER = 2.0; // Maximum width (slow drawing)
-const VELOCITY_FILTER_WEIGHT = 0.7; // Smoothing factor
+const MAX_WIDTH_MULTIPLIER = 3.0; // Maximum width (slow drawing)
+const VELOCITY_FILTER_WEIGHT = 0.6; // Smoothing factor (balanced)
+const CANVAS_SCALE = 2; // Higher resolution for better quality
 
 // DOM Elements
+const frame = document.querySelector('.frame');
+const title = document.querySelector('.title');
 const signatureBox = document.getElementById('signatureBox');
 const drawingCanvas = document.getElementById('drawingCanvas');
 const drawPrompt = document.getElementById('drawPrompt');
 const strokeBtns = document.querySelectorAll('.stroke-btn');
+const controls = document.getElementById('controls');
 const clearBtn = document.getElementById('clearBtn');
 const createBtn = document.getElementById('createBtn');
 const resetBtn = document.getElementById('resetBtn');
@@ -108,10 +113,20 @@ const ctx = drawingCanvas.getContext('2d', { willReadFrequently: true });
 
 // Initialize canvas
 function initCanvas() {
-    const rect = signatureBox.getBoundingClientRect();
-    // Canvas matches the signature box dimensions
-    drawingCanvas.width = rect.width;
-    drawingCanvas.height = rect.height;
+    // Use full viewport dimensions for canvas
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    
+    // Calculate drawable area (above the controls)
+    const controlsRect = controls.getBoundingClientRect();
+    drawableHeight = controlsRect.top; // Everything above the controls
+    
+    // Set canvas resolution at higher scale for better quality
+    drawingCanvas.width = vw * CANVAS_SCALE;
+    drawingCanvas.height = vh * CANVAS_SCALE;
+    
+    // Scale the context to match
+    ctx.scale(CANVAS_SCALE, CANVAS_SCALE);
     
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -129,6 +144,8 @@ signatureBox.addEventListener('click', () => {
         initCanvas();
         drawingCanvas.classList.add('active');
         drawPrompt.classList.add('hidden');
+        title.style.opacity = '0'; // Hide title
+        title.style.pointerEvents = 'none';
         drawingActive = true; // Enable touch-to-draw mode
         drawingEnabled = true; // Start with drawing enabled
         
@@ -151,39 +168,45 @@ strokeBtns.forEach(btn => {
 // Drawing functions
 function getCoordinates(e) {
     const rect = drawingCanvas.getBoundingClientRect();
-    const scaleX = drawingCanvas.width / rect.width;
-    const scaleY = drawingCanvas.height / rect.height;
     
+    // No scaling needed since we're using ctx.scale()
+    let x, y;
     if (e.touches && e.touches.length > 0) {
-        return {
-            x: (e.touches[0].clientX - rect.left) * scaleX,
-            y: (e.touches[0].clientY - rect.top) * scaleY
-        };
+        x = e.touches[0].clientX - rect.left;
+        y = e.touches[0].clientY - rect.top;
+    } else {
+        x = e.clientX - rect.left;
+        y = e.clientY - rect.top;
     }
-    return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-    };
+    
+    // Clamp Y coordinate to drawable area (don't allow drawing below buttons)
+    y = Math.min(y, drawableHeight);
+    
+    return { x, y };
 }
 
 // Calculate velocity-based line width
 function getLineWidth(velocity) {
-    // Map velocity to width multiplier
-    // velocity ranges: slow=0-1, medium=1-5, fast=5+
-    // Invert: slow=thick, fast=thin
+    // velocity is in pixels/millisecond
+    // Convert to more intuitive scale: pixels per 16ms (one frame at 60fps)
+    const normalizedVelocity = velocity * 16;
+    
+    // Map velocity to width multiplier with smoother curve
+    // Slow: 0-5 px/frame, Medium: 5-30 px/frame, Fast: 30+ px/frame
     let multiplier;
     
-    if (velocity < 0.5) {
+    if (normalizedVelocity < 5) {
         // Very slow - maximum thickness
         multiplier = MAX_WIDTH_MULTIPLIER;
-    } else if (velocity > 10) {
+    } else if (normalizedVelocity > 30) {
         // Very fast - minimum thickness
         multiplier = MIN_WIDTH_MULTIPLIER;
     } else {
-        // Interpolate between min and max based on velocity
-        // Use logarithmic scale for more natural feel
-        const t = Math.min(1, velocity / 10);
-        multiplier = MAX_WIDTH_MULTIPLIER - (t * (MAX_WIDTH_MULTIPLIER - MIN_WIDTH_MULTIPLIER));
+        // Smooth interpolation with easing
+        const t = (normalizedVelocity - 5) / 25; // Map 5-30 to 0-1
+        // Apply ease-in-out for smoother transitions
+        const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        multiplier = MAX_WIDTH_MULTIPLIER - (eased * (MAX_WIDTH_MULTIPLIER - MIN_WIDTH_MULTIPLIER));
     }
     
     const targetWidth = currentStrokeThickness * multiplier;
@@ -212,9 +235,6 @@ function startDrawing(e) {
     lastPoint = coords;
     lastTimestamp = Date.now();
     currentLineWidth = currentStrokeThickness;
-    
-    ctx.beginPath();
-    ctx.moveTo(coords.x, coords.y);
 }
 
 function draw(e) {
@@ -224,7 +244,6 @@ function draw(e) {
     if (!drawingEnabled) {
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
         return;
@@ -236,7 +255,6 @@ function draw(e) {
         // Mouse button is pressed, stop drawing
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
         return;
@@ -263,11 +281,6 @@ function draw(e) {
     
     // If finger was lifted or position jumped, start a NEW stroke
     if (!isDrawing || fingerWasLifted || positionJumped) {
-        if (isDrawing) {
-            // End the previous stroke cleanly
-            ctx.closePath();
-        }
-        
         // Start recording on first touch (for hover-based drawing)
         if (!hasStartedDrawing) {
             hasStartedDrawing = true;
@@ -279,8 +292,6 @@ function draw(e) {
         lastPoint = coords;
         lastTimestamp = now;
         currentLineWidth = currentStrokeThickness;
-        ctx.beginPath();
-        ctx.moveTo(coords.x, coords.y);
     } else {
         // Calculate velocity
         if (lastPoint && lastTimestamp) {
@@ -293,12 +304,14 @@ function draw(e) {
             
             // Update line width based on velocity
             const newWidth = getLineWidth(velocity);
+            
+            // Draw this segment separately so it keeps its width
+            ctx.beginPath();
+            ctx.moveTo(lastPoint.x, lastPoint.y);
             ctx.lineWidth = newWidth;
+            ctx.lineTo(coords.x, coords.y);
+            ctx.stroke();
         }
-        
-        // Continue the current stroke
-        ctx.lineTo(coords.x, coords.y);
-        ctx.stroke();
         
         // Update tracking
         lastPoint = coords;
@@ -316,7 +329,6 @@ function draw(e) {
     strokeTimeoutId = setTimeout(() => {
         if (isDrawing) {
             isDrawing = false;
-            ctx.closePath();
             lastDrawPosition = null;
         }
     }, LIFT_DETECTION_MS);
@@ -326,7 +338,6 @@ function stopDrawing(e) {
     if (!isDrawing) return;
     e.preventDefault();
     isDrawing = false;
-    ctx.closePath();
 }
 
 // Mouse events - click toggles drawing enabled/disabled
@@ -361,8 +372,8 @@ drawingCanvas.addEventListener('touchend', stopDrawing);
 function initRecording() {
     drawingFrames = [];
     startTime = null; // Will be set on first touch
-    canvasWidth = drawingCanvas.width;
-    canvasHeight = drawingCanvas.height;
+    canvasWidth = window.innerWidth * CANVAS_SCALE;
+    canvasHeight = drawableHeight * CANVAS_SCALE; // Use drawable height, not full viewport
     hasStartedDrawing = false;
 }
 
@@ -380,9 +391,24 @@ function startFrameCapture() {
 }
 
 function captureFrame() {
-    // Capture canvas at full resolution
+    // Capture only the drawable area (above the buttons)
     try {
-        const dataUrl = drawingCanvas.toDataURL('image/png');
+        // Create a temporary canvas for the drawable region only
+        const tempCanvas = document.createElement('canvas');
+        const drawableWidth = window.innerWidth;
+        tempCanvas.width = drawableWidth * CANVAS_SCALE;
+        tempCanvas.height = drawableHeight * CANVAS_SCALE;
+        
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        
+        // Copy only the drawable region from the main canvas
+        tempCtx.drawImage(
+            drawingCanvas,
+            0, 0, drawableWidth * CANVAS_SCALE, drawableHeight * CANVAS_SCALE,
+            0, 0, drawableWidth * CANVAS_SCALE, drawableHeight * CANVAS_SCALE
+        );
+        
+        const dataUrl = tempCanvas.toDataURL('image/png');
         drawingFrames.push({
             data: dataUrl,
             timestamp: Date.now() - startTime
@@ -570,6 +596,8 @@ async function createGIF() {
             // Hide drawing controls and show prompt again
             drawingCanvas.classList.remove('active');
             drawPrompt.classList.remove('hidden');
+            title.style.opacity = '1'; // Fade title back in
+            title.style.pointerEvents = 'auto';
             drawingActive = false;
             
             createBtn.disabled = false;
@@ -722,6 +750,8 @@ saveThumbnail.addEventListener('click', () => {
                 // Now show overlay with smooth animation
                 requestAnimationFrame(() => {
                     gifOverlay.classList.add('active');
+                    overlayContent.classList.add('active');
+                    overlayResult.classList.add('active');
                     document.body.style.overflow = 'hidden';
                 });
             };
@@ -759,6 +789,8 @@ resetBtn.addEventListener('click', () => {
     ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     drawingCanvas.classList.remove('active');
     drawPrompt.classList.remove('hidden');
+    title.style.opacity = '1'; // Fade title back in
+    title.style.pointerEvents = 'auto';
     createBtn.disabled = false;
     clearBtn.disabled = false;
     drawingActive = false; // Disable drawing mode
