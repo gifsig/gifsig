@@ -125,6 +125,7 @@ body.has-content .container {
     color: var(--dark-grey);
     font-size: 1.1rem;
     pointer-events: none;
+    opacity: 0.6;
     transition: opacity 0.3s ease;
 }
 
@@ -132,16 +133,10 @@ body.has-content .container {
     opacity: 0;
 }
 
-.draw-prompt span {
-    opacity: 0.6;
-}
-
 .pen-icon {
-    width: 480px;
-    height: 480px;
+    width: 48px;
+    height: 48px;
     stroke: var(--accent-blue);
-    opacity: 1 !important;
-    filter: opacity(1);
 }
 
 .stroke-selector {

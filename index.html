@@ -2,11 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>GifSig - Signature GIF Creator</title>
-    <link rel="stylesheet" href="styles.css">
+    <script>
+        // Detect mobile vs desktop and load appropriate CSS
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const cssFile = isMobile ? 'mobile.css' : 'styles.css';
+        document.write('<link rel="stylesheet" href="' + cssFile + '">');
+    </script>
 </head>
-<body>
+<body class="mobile-loading">
     <div class="container">
         <div class="frame">
             <h1 class="title">gifsig</h1>
@@ -20,41 +25,25 @@
                 <canvas id="drawingCanvas" class="drawing-canvas"></canvas>
                 
                 <div class="draw-prompt" id="drawPrompt">
-                    <svg class="pen-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
-                        <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
-                        <path d="M2 2l7.586 7.586"></path>
-                        <circle cx="11" cy="11" r="2"></circle>
-                    </svg>
+                    <img src="assets/gifsig_pen.svg" alt="Pen" class="pen-icon">
                     <span>Click to sign your signature</span>
                 </div>
             </div>
             
-            <div class="stroke-selector" id="strokeSelector">
-                <label>Stroke Thickness:</label>
-                <div class="stroke-options">
-                    <button class="stroke-btn" data-thickness="2">
-                        <span class="stroke-preview" style="height: 2px;"></span>
-                    </button>
-                    <button class="stroke-btn" data-thickness="4">
-                        <span class="stroke-preview" style="height: 4px;"></span>
-                    </button>
-                    <button class="stroke-btn active" data-thickness="6">
-                        <span class="stroke-preview" style="height: 6px;"></span>
-                    </button>
-                    <button class="stroke-btn" data-thickness="8">
-                        <span class="stroke-preview" style="height: 8px;"></span>
-                    </button>
-                    <button class="stroke-btn" data-thickness="10">
-                        <span class="stroke-preview" style="height: 10px;"></span>
-                    </button>
-                    <button class="stroke-btn" data-thickness="12">
-                        <span class="stroke-preview" style="height: 12px;"></span>
-                    </button>
-                </div>
-            </div>
-            
             <div class="controls" id="controls">
+                <button class="stroke-btn" data-thickness="2">
+                    <span class="stroke-preview" style="height: 2px;"></span>
+                </button>
+                <button class="stroke-btn active" data-thickness="4">
+                    <span class="stroke-preview" style="height: 4px;"></span>
+                </button>
+                <button class="stroke-btn" data-thickness="6">
+                    <span class="stroke-preview" style="height: 6px;"></span>
+                </button>
+                <button class="stroke-btn" data-thickness="8">
+                    <span class="stroke-preview" style="height: 8px;"></span>
+                </button>
+                
                 <button class="btn btn-clear" id="clearBtn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -91,41 +80,97 @@
     
     <!-- GIF Preview Overlay -->
     <div class="gif-overlay" id="gifOverlay">
+        <div class="loading-animation" id="loadingAnimation">
+            <img src="assets/loading_animation.gif" alt="Loading..." id="loadingGif">
+        </div>
         <div class="overlay-content">
-            <div class="overlay-header">
-                <h2>Your Signature GIF</h2>
-                <button class="close-overlay" id="closeOverlay">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                </button>
-            </div>
-            <div class="gif-preview" id="gifPreview">
-                <img id="gifImage" alt="Your signature GIF">
-            </div>
-            <div class="overlay-actions">
-                <button class="btn btn-download" id="downloadBtnOverlay">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="7 10 12 15 17 10"></polyline>
-                        <line x1="12" y1="15" x2="12" y2="3"></line>
-                    </svg>
-                    Download GIF
-                </button>
-                <button class="btn btn-save-thumb" id="saveThumbnail">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                        <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    Save
-                </button>
+            <div class="overlay-result" id="overlayResult">
+                <div class="overlay-header">
+                    <h2>Your Signature GIF</h2>
+                    <button class="close-overlay" id="closeOverlay">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div class="gif-preview" id="gifPreview">
+                    <img id="gifImage" alt="Your signature GIF">
+                </div>
+                <div class="overlay-actions">
+                    <button class="btn btn-download" id="downloadBtnOverlay">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="7 10 12 15 17 10"></polyline>
+                            <line x1="12" y1="15" x2="12" y2="3"></line>
+                        </svg>
+                        Download GIF
+                    </button>
+                    <button class="btn btn-save-thumb" id="saveThumbnail">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save
+                    </button>
+                </div>
             </div>
         </div>
     </div>
     
+    <!-- Rotation Overlay for Mobile -->
+    <div class="rotate-overlay" id="rotateOverlay">
+        <div class="rotate-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 18L8 21M16 18L16 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 3L15 6L12 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="rotate-message">
+            <h2>Please Rotate Your Device</h2>
+            <p>This app works best in landscape mode</p>
+        </div>
+    </div>
+    
     <script src="gif.js"></script>
-    <script src="script.js"></script>
+    <script>
+        // Detect mobile vs desktop and load appropriate JS
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const jsFile = isMobileDevice ? 'mobile.js' : 'desktop.js';
+        
+        // For mobile, add orientation detection
+        if (isMobileDevice) {
+            const rotateOverlay = document.getElementById('rotateOverlay');
+            
+            function checkOrientation() {
+                const isPortrait = window.innerHeight > window.innerWidth;
+                
+                if (isPortrait) {
+                    // Portrait mode - show overlay, hide content
+                    rotateOverlay.classList.add('show');
+                    document.body.classList.add('mobile-loading');
+                } else {
+                    // Landscape mode - hide overlay, show content
+                    rotateOverlay.classList.remove('show');
+                    document.body.classList.remove('mobile-loading');
+                }
+            }
+            
+            // Initial check
+            checkOrientation();
+            
+            // Listen for orientation changes
+            window.addEventListener('resize', checkOrientation);
+            window.addEventListener('orientationchange', checkOrientation);
+        } else {
+            // Desktop - remove loading class
+            document.body.classList.remove('mobile-loading');
+        }
+        
+        // Load the appropriate script
+        document.write('<script src="' + jsFile + '"><\/script>');
+    </script>
 </body>
 </html>
