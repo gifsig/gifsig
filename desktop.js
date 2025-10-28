@@ -339,6 +339,12 @@ function stopDrawing(e) {
     e.preventDefault();
     isDrawing = false;
     pointBuffer = []; // Clear buffer when stroke ends
+    
+    // Clear the timeout since we're explicitly ending the stroke
+    if (strokeTimeoutId) {
+        clearTimeout(strokeTimeoutId);
+        strokeTimeoutId = null;
+    }
 }
 
 // Mouse events - click toggles drawing enabled/disabled
@@ -470,15 +476,84 @@ createBtn.addEventListener('click', async (e) => {
     await createGIF();
 });
 
+// Auto-crop function: find bounding box of non-white pixels with padding
+function getSignatureBounds(imageData) {
+    const { data, width, height } = imageData;
+    const PADDING = 10; // Pixels of padding around signature
+    const WHITE_THRESHOLD = 250; // Pixels with RGB values above this are considered white
+    
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+    let hasContent = false;
+    
+    // Scan all pixels to find bounding box
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = (y * width + x) * 4;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const a = data[idx + 3];
+            
+            // Check if pixel is not white (considering alpha)
+            if (a > 0 && (r < WHITE_THRESHOLD || g < WHITE_THRESHOLD || b < WHITE_THRESHOLD)) {
+                hasContent = true;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+    }
+    
+    // If no content found, return full canvas bounds
+    if (!hasContent) {
+        return { x: 0, y: 0, width, height };
+    }
+    
+    // Add padding, but ensure we stay within canvas bounds
+    const x = Math.max(0, minX - PADDING);
+    const y = Math.max(0, minY - PADDING);
+    const w = Math.min(width - x, maxX - minX + 1 + PADDING * 2);
+    const h = Math.min(height - y, maxY - minY + 1 + PADDING * 2);
+    
+    return { x, y, width: w, height: h };
+}
+
 // Create GIF from frames
 async function createGIF() {
     try {
         // Use captured frames at full resolution
         const framesToUse = drawingFrames;
         
-        // Use exact canvas dimensions - no scaling
-        const gifWidth = canvasWidth;
-        const gifHeight = canvasHeight;
+        // Determine cropping bounds from the final frame
+        const finalFrameData = framesToUse[framesToUse.length - 1].data;
+        const tempImg = new Image();
+        await new Promise((resolve, reject) => {
+            tempImg.onload = resolve;
+            tempImg.onerror = reject;
+            tempImg.src = finalFrameData;
+        });
+        
+        // Draw final frame to a temp canvas to get image data
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvasWidth;
+        tempCanvas.height = canvasHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        tempCtx.fillStyle = '#FFFFFF';
+        tempCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+        tempCtx.drawImage(tempImg, 0, 0);
+        
+        const imageData = tempCtx.getImageData(0, 0, canvasWidth, canvasHeight);
+        const bounds = getSignatureBounds(imageData);
+        
+        console.log('Crop bounds:', bounds);
+        
+        // Use cropped dimensions for GIF
+        const gifWidth = bounds.width;
+        const gifHeight = bounds.height;
         
         const gif = new GIF({
             workers: 2,
@@ -489,11 +564,11 @@ async function createGIF() {
             repeat: -1 // Play once, no loop
         });
 
-        // Create a single reusable canvas at exact GIF dimensions
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = gifWidth;
-        tempCanvas.height = gifHeight;
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        // Create a single reusable canvas at cropped GIF dimensions
+        const gifCanvas = document.createElement('canvas');
+        gifCanvas.width = gifWidth;
+        gifCanvas.height = gifHeight;
+        const gifCtx = gifCanvas.getContext('2d', { willReadFrequently: true });
         
         // Process frames
         for (let i = 0; i < framesToUse.length; i++) {
@@ -508,20 +583,20 @@ async function createGIF() {
             
             // Debug: log image dimensions on first frame
             if (i === 0) {
-                console.log(`Source image: ${img.width}x${img.height}, Target GIF: ${gifWidth}x${gifHeight}`);
+                console.log(`Source image: ${img.width}x${img.height}, Cropped GIF: ${gifWidth}x${gifHeight}`);
             }
             
-            // Fill with white background, then draw the signature at exact size
-            tempCtx.fillStyle = '#FFFFFF';
-            tempCtx.fillRect(0, 0, gifWidth, gifHeight);
-            // No scaling - 1:1 copy of the full image
-            tempCtx.drawImage(img, 0, 0);
+            // Fill with white background, then draw the cropped signature
+            gifCtx.fillStyle = '#FFFFFF';
+            gifCtx.fillRect(0, 0, gifWidth, gifHeight);
+            // Draw only the cropped portion
+            gifCtx.drawImage(img, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
             
             const delay = i < framesToUse.length - 1 
                 ? framesToUse[i + 1].timestamp - frame.timestamp 
                 : 200;
             
-            gif.addFrame(tempCanvas, { copy: true, delay: delay });
+            gif.addFrame(gifCanvas, { copy: true, delay: delay });
             
             status.textContent = `Processing... ${Math.floor((i / framesToUse.length) * 100)}%`;
         }
