@@ -141,30 +141,10 @@
         const isMobileDevice = 'ontouchstart' in window;
         const jsFile = isMobileDevice ? 'mobile.js' : 'desktop.js';
         
-        // For mobile, add orientation detection
+        // For mobile, remove loading class (CSS handles orientation)
         if (isMobileDevice) {
-            const rotateOverlay = document.getElementById('rotateOverlay');
-            
-            function checkOrientation() {
-                const isPortrait = window.innerHeight > window.innerWidth;
-                
-                if (isPortrait) {
-                    // Portrait mode - show overlay, hide content
-                    rotateOverlay.classList.add('show');
-                    document.body.classList.add('mobile-loading');
-                } else {
-                    // Landscape mode - hide overlay, show content
-                    rotateOverlay.classList.remove('show');
-                    document.body.classList.remove('mobile-loading');
-                }
-            }
-            
-            // Initial check
-            checkOrientation();
-            
-            // Listen for orientation changes
-            window.addEventListener('resize', checkOrientation);
-            window.addEventListener('orientationchange', checkOrientation);
+            // CSS media queries handle orientation automatically
+            document.body.classList.remove('mobile-loading');
         } else {
             // Desktop - remove loading class
             document.body.classList.remove('mobile-loading');
