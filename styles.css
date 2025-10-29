@@ -470,14 +470,13 @@ body.has-content .container {
 .gif-preview {
     position: relative;
     width: 100%;
-    margin: 0 auto 20px auto;
     display: flex;
     align-items: center;
     justify-content: center;
     flex: 1;
     min-height: 0;
-    overflow: visible;
-    padding: 15px 0; /* Add vertical padding for shadow space */
+    padding: 20px 0; /* Vertical padding for shadow and button spacing */
+    overflow: hidden; /* Contain content, prevent overflow */
 }
 
 /* Mat background - removed for true size display */
@@ -485,8 +484,9 @@ body.has-content .container {
 .gif-preview img {
     display: block;
     margin: auto;
-    max-width: calc(98vw - 80px);
-    max-height: calc(98vh - 200px);
+    /* Account for shadow space and padding in max dimensions */
+    max-width: calc(98vw - 80px - 30px); /* Subtract padding + shadow space */
+    max-height: calc(98vh - 280px); /* More conservative height for buttons + shadow */
     width: auto;
     height: auto;
     object-fit: contain;
@@ -501,6 +501,8 @@ body.has-content .container {
     flex-wrap: wrap;
     justify-content: center;
     flex-shrink: 0;
+    margin-top: 20px; /* Spacing from GIF preview */
+    padding-top: 10px; /* Additional padding for visual separation */
 }
 
 .overlay-actions .btn {
