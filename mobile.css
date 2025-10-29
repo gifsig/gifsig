@@ -346,6 +346,25 @@ body.has-content .container {
 
 .status {
     display: none;
+    text-align: center;
+    padding: 12px 20px;
+    margin-top: 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+.status.visible {
+    display: block;
+    opacity: 1;
+}
+
+.status.error {
+    background-color: #FFE5E5;
+    color: #D9534F;
+    border: 1px solid #FFB8B8;
 }
 
 .thumbnail-area {

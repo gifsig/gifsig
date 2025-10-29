@@ -551,41 +551,81 @@ clearBtn.addEventListener('click', (e) => {
         strokeTimeoutId = null;
     }
     
-    // Clear any status messages
+    // Clear any status messages with fade out
     const statusDiv = document.getElementById('status');
-    statusDiv.style.display = 'none';
+    if (statusDiv.fadeTimeout) {
+        clearTimeout(statusDiv.fadeTimeout);
+    }
+    statusDiv.classList.remove('visible');
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 300);
 });
 
 // Function to check if canvas has content
 function isCanvasEmpty() {
-    const imageData = ctx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
-    const data = imageData.data;
-    
-    // Check if all pixels are white or transparent
-    for (let i = 0; i < data.length; i += 4) {
-        // Check RGB values (ignore alpha)
-        if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
-            if (data[i + 3] !== 0) { // Also check it's not fully transparent
-                return false; // Found non-white content
+    try {
+        // Check if canvas has valid dimensions
+        if (!drawingCanvas || !drawingCanvas.width || !drawingCanvas.height) {
+            return true;
+        }
+        
+        const imageData = ctx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
+        const data = imageData.data;
+        
+        // Check if all pixels are white or transparent
+        for (let i = 0; i < data.length; i += 4) {
+            // Check RGB values (ignore alpha)
+            if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
+                if (data[i + 3] !== 0) { // Also check it's not fully transparent
+                    return false; // Found non-white content
+                }
             }
         }
+        return true; // Canvas is empty
+    } catch (error) {
+        console.error('Error checking canvas:', error);
+        return true; // Assume empty on error
     }
-    return true; // Canvas is empty
 }
 
-// Function to show status message
+// Function to show status message with fade animation
 function showStatusMessage(message, isError = false) {
     const statusDiv = document.getElementById('status');
-    statusDiv.textContent = message;
-    statusDiv.style.display = 'block';
-    statusDiv.style.color = isError ? '#ff4444' : '#333';
-    statusDiv.style.fontWeight = 'bold';
-    statusDiv.style.padding = '10px';
-    statusDiv.style.marginTop = '10px';
     
-    // Auto-hide after 3 seconds
-    setTimeout(() => {
-        statusDiv.style.display = 'none';
+    if (!statusDiv) {
+        console.error('Status div not found');
+        return;
+    }
+    
+    console.log('showStatusMessage called:', message, 'isError:', isError);
+    
+    // Clear any existing fade out timeout
+    if (statusDiv.fadeTimeout) {
+        clearTimeout(statusDiv.fadeTimeout);
+    }
+    
+    // Reset display and set the message and classes
+    statusDiv.style.display = 'block';
+    statusDiv.textContent = message;
+    statusDiv.className = 'status' + (isError ? ' error' : '');
+    
+    // Force reflow to ensure the transition works
+    statusDiv.offsetHeight;
+    
+    // Fade in
+    statusDiv.classList.add('visible');
+    
+    console.log('Status div classes:', statusDiv.className);
+    
+    // Auto-hide after 3 seconds with fade out
+    statusDiv.fadeTimeout = setTimeout(() => {
+        statusDiv.classList.remove('visible');
+        
+        // Remove from DOM after fade out animation completes
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 300); // Match the CSS transition duration
     }, 3000);
 }
 
@@ -594,8 +634,15 @@ createBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     
     // Check if canvas is empty
-    if (isCanvasEmpty() || !hasStartedDrawing || drawingFrames.length < 2) {
-        showStatusMessage('Please sign your signature first', true);
+    const canvasEmpty = isCanvasEmpty();
+    const notStarted = !hasStartedDrawing;
+    const notEnoughFrames = drawingFrames.length < 2;
+    
+    console.log('Create validation:', { canvasEmpty, notStarted, notEnoughFrames, frameCount: drawingFrames.length });
+    
+    if (canvasEmpty || notStarted || notEnoughFrames) {
+        console.log('Showing error message - no signature detected');
+        showStatusMessage('Please draw your signature first! ✨', true);
         return;
     }
     
@@ -1044,9 +1091,15 @@ resetBtn.addEventListener('click', () => {
     // Reset recording state
     initRecording(); // This resets drawingFrames and hasStartedDrawing
     
-    // Clear any status messages
+    // Clear any status messages with fade out
     const statusDiv = document.getElementById('status');
-    statusDiv.style.display = 'none';
+    if (statusDiv.fadeTimeout) {
+        clearTimeout(statusDiv.fadeTimeout);
+    }
+    statusDiv.classList.remove('visible');
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 300);
     
     // Clear thumbnails
     thumbnailArea.innerHTML = '';
