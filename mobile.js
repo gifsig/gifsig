@@ -38,6 +38,9 @@
         setTimeout(function() {
             window.scrollTo(0, 0);
         }, 100);
+        
+        // Handle overlay visibility based on orientation
+        handleOrientationOverlay();
     });
     
     // Reset on page visibility change (coming back from idle/background)
@@ -116,6 +119,40 @@ const saveThumbnail = document.getElementById('saveThumbnail');
 const thumbnailArea = document.getElementById('thumbnailArea');
 
 const ctx = drawingCanvas.getContext('2d', { willReadFrequently: true });
+
+// Track overlay state for orientation changes
+let overlayWasOpen = false;
+
+// Handle orientation change - hide results overlay in portrait, restore in landscape
+function handleOrientationOverlay() {
+    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    
+    if (isPortrait) {
+        // Going to portrait - hide results overlay if it's open
+        if (gifOverlay.classList.contains('active')) {
+            overlayWasOpen = true;
+            gifOverlay.classList.remove('active');
+            overlayContent.classList.remove('active');
+            overlayResult.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    } else {
+        // Going to landscape - restore results overlay if it was open
+        if (overlayWasOpen) {
+            overlayWasOpen = false;
+            // Small delay to allow orientation to settle
+            setTimeout(() => {
+                gifOverlay.classList.add('active');
+                overlayContent.classList.add('active');
+                overlayResult.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }, 150);
+        }
+    }
+}
+
+// Also listen to resize events for more responsive orientation detection
+window.addEventListener('resize', handleOrientationOverlay);
 
 // Initialize canvas
 function initCanvas() {
@@ -793,6 +830,7 @@ closeOverlay.addEventListener('click', () => {
     overlayContent.classList.remove('active');
     overlayResult.classList.remove('active');
     document.body.style.overflow = '';
+    overlayWasOpen = false; // Clear flag since user manually closed
     // Reset GIF play state by clearing src
     setTimeout(() => {
         if (!gifOverlay.classList.contains('active')) {
@@ -809,6 +847,7 @@ gifOverlay.addEventListener('click', (e) => {
         overlayContent.classList.remove('active');
         overlayResult.classList.remove('active');
         document.body.style.overflow = '';
+        overlayWasOpen = false; // Clear flag since user manually closed
         // Reset GIF play state by clearing src
         setTimeout(() => {
             if (!gifOverlay.classList.contains('active')) {
@@ -826,6 +865,7 @@ document.addEventListener('keydown', (e) => {
         overlayContent.classList.remove('active');
         overlayResult.classList.remove('active');
         document.body.style.overflow = '';
+        overlayWasOpen = false; // Clear flag since user manually closed
         // Reset GIF play state by clearing src
         setTimeout(() => {
             if (!gifOverlay.classList.contains('active')) {
@@ -924,6 +964,7 @@ saveThumbnail.addEventListener('click', () => {
         // Close overlay
         gifOverlay.classList.remove('active');
         document.body.style.overflow = '';
+        overlayWasOpen = false; // Clear flag since user manually closed
         // Reset GIF play state by clearing src
         setTimeout(() => {
             if (!gifOverlay.classList.contains('active')) {
