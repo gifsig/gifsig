@@ -415,13 +415,18 @@ body.has-content .container {
     background-color: var(--pure-white);
     border-radius: 20px;
     padding: 20px 15px;
-    max-width: 85vw;
-    max-height: 80vh;
-    overflow: hidden;
+    width: 98vw;
+    max-width: 98vw;
+    max-height: 98vh;
+    max-height: 98dvh;
+    overflow-y: auto;
     position: relative;
     box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
     opacity: 0;
     transition: opacity 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
 }
 
 .overlay-content.active {
@@ -450,6 +455,10 @@ body.has-content .container {
 .overlay-result {
     opacity: 0;
     pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
 }
 
 .overlay-result.active {
@@ -461,7 +470,8 @@ body.has-content .container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
 .overlay-header h2 {
@@ -469,6 +479,10 @@ body.has-content .container {
     font-weight: 300;
     color: var(--dark-grey);
     margin: 0;
+}
+
+.gif-dimensions {
+    display: none;
 }
 
 .close-overlay {
@@ -496,22 +510,39 @@ body.has-content .container {
 }
 
 .gif-preview {
-    text-align: center;
-    margin-bottom: 15px;
+    position: relative;
+    width: 100%;
+    margin: 0 auto 12px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
 }
 
+/* Mat background - removed for true size display */
+
 .gif-preview img {
-    max-width: 100%;
-    max-height: 50vh;
-    border-radius: 15px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    display: block;
+    margin: auto;
+    max-width: calc(98vw - 40px);
+    max-height: calc(98dvh - 140px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    background-color: white;
 }
 
 .overlay-actions {
     display: flex;
-    gap: 15px;
+    gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .overlay-actions .btn {

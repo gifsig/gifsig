@@ -21,6 +21,7 @@ let canvasWidth = 0;
 let canvasHeight = 0;
 let currentGifBlob = null;
 let currentGifUrl = null;
+let loadingStartTime = null;
 
 // Velocity-based stroke variables
 let lastPoint = null;
@@ -465,8 +466,9 @@ createBtn.addEventListener('click', async (e) => {
     gifOverlay.classList.add('active');
     document.body.style.overflow = 'hidden';
     
-    // Force reload the loading GIF to restart animation
+    // Force reload the loading GIF to restart animation and track when it starts
     const loadingSrc = loadingGif.src;
+    const loadingStartTime = Date.now();
     loadingGif.src = '';
     loadingGif.src = loadingSrc;
     
@@ -551,9 +553,19 @@ async function createGIF() {
         
         console.log('Crop bounds:', bounds);
         
-        // Use cropped dimensions for GIF
-        const gifWidth = bounds.width;
-        const gifHeight = bounds.height;
+        // Calculate optimal GIF dimensions with intelligent scaling
+        const MAX_DIMENSION = 1200; // Max width or height for best quality/size balance
+        let gifWidth = bounds.width;
+        let gifHeight = bounds.height;
+        
+        // Scale down if either dimension exceeds maximum
+        const maxDimension = Math.max(gifWidth, gifHeight);
+        if (maxDimension > MAX_DIMENSION) {
+            const scale = MAX_DIMENSION / maxDimension;
+            gifWidth = Math.round(gifWidth * scale);
+            gifHeight = Math.round(gifHeight * scale);
+            console.log(`Scaled down from ${bounds.width}x${bounds.height} to ${gifWidth}x${gifHeight}`);
+        }
         
         const gif = new GIF({
             workers: 2,
@@ -586,11 +598,11 @@ async function createGIF() {
                 console.log(`Source image: ${img.width}x${img.height}, Cropped GIF: ${gifWidth}x${gifHeight}`);
             }
             
-            // Fill with white background, then draw the cropped signature
+            // Fill with white background, then draw the cropped and scaled signature
             gifCtx.fillStyle = '#FFFFFF';
             gifCtx.fillRect(0, 0, gifWidth, gifHeight);
-            // Draw only the cropped portion
-            gifCtx.drawImage(img, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
+            // Draw cropped portion, scaled to target dimensions
+            gifCtx.drawImage(img, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, gifWidth, gifHeight);
             
             const delay = i < framesToUse.length - 1 
                 ? framesToUse[i + 1].timestamp - frame.timestamp 
@@ -630,18 +642,16 @@ async function createGIF() {
             });
             
             const loadingAnimationComplete = new Promise((resolve) => {
-                // Wait for loading GIF to complete at least one loop
-                // Assuming loading GIF is about 1-2 seconds, we'll track it
-                let hasLooped = false;
-                const checkLoop = () => {
-                    if (!hasLooped) {
-                        hasLooped = true;
-                        // Wait minimum 1 second for at least one animation loop
-                        setTimeout(resolve, 1000);
-                    }
-                };
-                // Start checking immediately
-                checkLoop();
+                // Ensure loading animation plays for at least one full cycle
+                // Loading GIF has 12 frames - calculate exact duration
+                const LOADING_GIF_FRAMES = 12;
+                const LOADING_GIF_FRAME_DELAY = 100; // ms per frame (standard for loading animations)
+                const LOADING_CYCLE_DURATION = LOADING_GIF_FRAMES * LOADING_GIF_FRAME_DELAY; // 1200ms
+                const elapsed = Date.now() - loadingStartTime;
+                const remainingTime = Math.max(0, LOADING_CYCLE_DURATION - elapsed);
+                
+                console.log(`Loading animation: ${elapsed}ms elapsed, waiting ${remainingTime}ms more for full cycle`);
+                setTimeout(resolve, remainingTime);
             });
             
             // Append to DOM
@@ -657,6 +667,10 @@ async function createGIF() {
             await Promise.all([signatureReady, loadingAnimationComplete]);
             
             console.log('Both signature and loading animation ready, showing result');
+            
+            // Update dimension display with actual GIF size
+            document.getElementById('gifWidth').textContent = gifWidth;
+            document.getElementById('gifHeight').textContent = gifHeight;
             
             // Now hide loading and show result
             requestAnimationFrame(() => {
