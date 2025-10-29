@@ -518,7 +518,8 @@ body.has-content .container {
     justify-content: center;
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow: visible;
+    padding: 10px 0; /* Add vertical padding for shadow space */
 }
 
 /* Mat background - removed for true size display */
