@@ -618,7 +618,7 @@ function showStatusMessage(message, isError = false) {
     
     console.log('Status div classes:', statusDiv.className);
     
-    // Auto-hide after 3 seconds with fade out
+    // Auto-hide after 2.5 seconds with fade out
     statusDiv.fadeTimeout = setTimeout(() => {
         statusDiv.classList.remove('visible');
         
@@ -626,7 +626,7 @@ function showStatusMessage(message, isError = false) {
         setTimeout(() => {
             statusDiv.style.display = 'none';
         }, 300); // Match the CSS transition duration
-    }, 3000);
+    }, 2500);
 }
 
 // Create button click event
