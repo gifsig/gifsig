@@ -540,7 +540,7 @@ clearBtn.addEventListener('click', (e) => {
     
     // Stop and reinitialize recording
     stopRecording();
-    initRecording();
+    initRecording(); // This resets drawingFrames and hasStartedDrawing
     
     isDrawing = false; // Reset drawing state
     drawingEnabled = true; // Reset to enabled
@@ -550,13 +550,52 @@ clearBtn.addEventListener('click', (e) => {
         clearTimeout(strokeTimeoutId);
         strokeTimeoutId = null;
     }
+    
+    // Clear any status messages
+    const statusDiv = document.getElementById('status');
+    statusDiv.style.display = 'none';
 });
 
-// Create GIF
+// Function to check if canvas has content
+function isCanvasEmpty() {
+    const imageData = ctx.getImageData(0, 0, drawingCanvas.width, drawingCanvas.height);
+    const data = imageData.data;
+    
+    // Check if all pixels are white or transparent
+    for (let i = 0; i < data.length; i += 4) {
+        // Check RGB values (ignore alpha)
+        if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
+            if (data[i + 3] !== 0) { // Also check it's not fully transparent
+                return false; // Found non-white content
+            }
+        }
+    }
+    return true; // Canvas is empty
+}
+
+// Function to show status message
+function showStatusMessage(message, isError = false) {
+    const statusDiv = document.getElementById('status');
+    statusDiv.textContent = message;
+    statusDiv.style.display = 'block';
+    statusDiv.style.color = isError ? '#ff4444' : '#333';
+    statusDiv.style.fontWeight = 'bold';
+    statusDiv.style.padding = '10px';
+    statusDiv.style.marginTop = '10px';
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        statusDiv.style.display = 'none';
+    }, 3000);
+}
+
+// Create button click event
 createBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     
-    if (drawingFrames.length < 2) {
+    // Check if canvas is empty
+    if (isCanvasEmpty() || !hasStartedDrawing || drawingFrames.length < 2) {
+        showStatusMessage('Please sign your signature first', true);
         return;
     }
     
@@ -789,6 +828,12 @@ async function createGIF() {
             title.style.pointerEvents = 'auto';
             drawingActive = false;
             
+            // Clear the canvas after successful GIF creation
+            ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            
+            // Reset recording state
+            initRecording(); // This resets drawingFrames, hasStartedDrawing, etc.
+            
             createBtn.disabled = false;
             clearBtn.disabled = false;
         });
@@ -995,6 +1040,13 @@ resetBtn.addEventListener('click', () => {
         clearTimeout(strokeTimeoutId);
         strokeTimeoutId = null;
     }
+    
+    // Reset recording state
+    initRecording(); // This resets drawingFrames and hasStartedDrawing
+    
+    // Clear any status messages
+    const statusDiv = document.getElementById('status');
+    statusDiv.style.display = 'none';
     
     // Clear thumbnails
     thumbnailArea.innerHTML = '';
