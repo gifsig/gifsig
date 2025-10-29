@@ -345,19 +345,22 @@ body.has-content .container {
 }
 
 .status {
-    display: none;
+    position: absolute;
+    bottom: 10px;
+    left: 15px;
+    right: 15px;
     text-align: center;
-    padding: 12px 20px;
-    margin-top: 15px;
+    padding: 10px 15px;
     border-radius: 8px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.3s ease-in-out;
+    z-index: 10;
 }
 
 .status.visible {
-    display: block;
     opacity: 1;
 }
 
@@ -365,6 +368,7 @@ body.has-content .container {
     background-color: #FFE5E5;
     color: #D9534F;
     border: 1px solid #FFB8B8;
+    box-shadow: 0 2px 8px rgba(217, 83, 79, 0.2);
 }
 
 .thumbnail-area {

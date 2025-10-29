@@ -557,9 +557,6 @@ clearBtn.addEventListener('click', (e) => {
         clearTimeout(statusDiv.fadeTimeout);
     }
     statusDiv.classList.remove('visible');
-    setTimeout(() => {
-        statusDiv.style.display = 'none';
-    }, 300);
 });
 
 // Function to check if canvas has content
@@ -605,8 +602,7 @@ function showStatusMessage(message, isError = false) {
         clearTimeout(statusDiv.fadeTimeout);
     }
     
-    // Reset display and set the message and classes
-    statusDiv.style.display = 'block';
+    // Set the message and classes
     statusDiv.textContent = message;
     statusDiv.className = 'status' + (isError ? ' error' : '');
     
@@ -621,11 +617,6 @@ function showStatusMessage(message, isError = false) {
     // Auto-hide after 2.5 seconds with fade out
     statusDiv.fadeTimeout = setTimeout(() => {
         statusDiv.classList.remove('visible');
-        
-        // Remove from DOM after fade out animation completes
-        setTimeout(() => {
-            statusDiv.style.display = 'none';
-        }, 300); // Match the CSS transition duration
     }, 2500);
 }
 
@@ -1097,9 +1088,6 @@ resetBtn.addEventListener('click', () => {
         clearTimeout(statusDiv.fadeTimeout);
     }
     statusDiv.classList.remove('visible');
-    setTimeout(() => {
-        statusDiv.style.display = 'none';
-    }, 300);
     
     // Clear thumbnails
     thumbnailArea.innerHTML = '';
