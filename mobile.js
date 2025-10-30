@@ -85,8 +85,8 @@ let loadingStartTime = null;
 let lastPoint = null;
 let lastTimestamp = 0;
 let currentLineWidth = currentStrokeThickness;
-const MIN_WIDTH_MULTIPLIER = 0.4; // Minimum width (fast drawing)
-const MAX_WIDTH_MULTIPLIER = 3.0; // Maximum width (slow drawing)
+const MIN_WIDTH_MULTIPLIER = 0.3; // Minimum width (fast drawing)
+const MAX_WIDTH_MULTIPLIER = 3.5; // Maximum width (slow drawing)
 const VELOCITY_FILTER_WEIGHT = 0.6; // Smoothing factor (balanced)
 const CANVAS_SCALE = 2; // Higher resolution for better quality
 
